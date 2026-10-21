@@ -73,7 +73,23 @@ app/
 docs/
   architecture.png     # architecture diagram
 docker-compose.yml     # api + postgres/clickhouse
+examples/
+  k8s_triage_client.py # K8s log watcher calling the gateway only for suspicious events
 ```
+
+## K8s triage agent usage
+
+The gateway is designed to sit underneath agents. `examples/k8s_triage_client.py`
+shows the intended pattern: a log watcher applies cheap rule-based health
+checks first (healthy / known-issue / suspicious) and only calls the gateway
+for suspicious events. Run it with the gateway up:
+
+```bash
+python examples/k8s_triage_client.py
+```
+
+The agent decides *whether* an LLM call is warranted; the gateway decides
+*how* to make it cheap.
 
 ## Benchmarks to add
 

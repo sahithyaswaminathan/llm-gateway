@@ -74,7 +74,8 @@ docs/
   architecture.png     # architecture diagram
 docker-compose.yml     # api + postgres/clickhouse
 examples/
-  k8s_triage_client.py # K8s log watcher calling the gateway only for suspicious events
+  k8s_triage_client.py  # K8s log watcher calling the gateway only for suspicious events
+  log_triage_client.py  # same pattern for Docker / Spark / Flink logs
 ```
 
 ## K8s triage agent usage
@@ -90,6 +91,16 @@ python examples/k8s_triage_client.py
 
 The agent decides *whether* an LLM call is warranted; the gateway decides
 *how* to make it cheap.
+
+`examples/log_triage_client.py` applies the same pattern to data-platform
+log sources: Docker daemon errors, Spark driver/executor failures, and
+Flink JobManager/TaskManager errors. Known issues (OOM, port conflicts,
+checkpoint timeouts, missing tables, ...) are answered from runbooks with
+no LLM call; only ambiguous failures reach the gateway.
+
+```bash
+python examples/log_triage_client.py
+```
 
 ## Benchmarks to add
 

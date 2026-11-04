@@ -58,6 +58,12 @@ curl -X POST http://localhost:8000/v1/complete \
   -d '{"prompt": "Summarize this K8s pod error: CrashLoopBackOff", "task_type": "triage", "max_cost_usd": 0.02}'
 ```
 
+## Demo: Grafana dashboard
+
+`docker compose up --build` also starts Prometheus (http://localhost:9090) and Grafana (http://localhost:3000, anonymous viewer). The `LLM Gateway` dashboard is provisioned from `deploy/observability/grafana/dashboards/llm-gateway.json` and shows the share of requests answered without the LLM, requests and p50/p90 latency by tier, and token use.
+
+Snapshot of a local run (85 requests, stubbed LLM, so agent latency is not representative): https://apps.abacus.ai/chatllm/share/artifact/2a6f43251:136764ceb6
+
 ## Project structure
 
 ```

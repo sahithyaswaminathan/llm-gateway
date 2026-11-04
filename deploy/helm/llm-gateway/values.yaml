@@ -1,0 +1,55 @@
+image:
+  repository: llm-gateway
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+gateway:
+  replicaCount: 1
+  port: 8000
+  resources:
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {memory: 3Gi}
+  env:
+    ollamaUrl: ""
+    defaultModel: mistral
+    cheapModel: phi
+    cacheDistanceThreshold: "0.2"
+  persistence:
+    size: 5Gi
+    storageClass: ""
+    existingClaim: ""
+
+ollama:
+  enabled: true
+  models:
+    - phi
+    - mistral
+
+watcher:
+  enabled: true
+  watchNamespace: ""
+  cooldownSeconds: 300
+  logTailLines: 20
+  restartThreshold: 3
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {memory: 256Mi}
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+
+runbooks: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

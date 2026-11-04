@@ -1,0 +1,35 @@
+{{- if and .Values.watcher.enabled .Values.rbac.create }}
+{{- $clusterWide := empty .Values.watcher.watchNamespace }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ ternary "ClusterRole" "Role" $clusterWide }}
+metadata:
+  name: {{ include "llm-gateway.fullname" . }}-watcher
+  {{- if not $clusterWide }}
+  namespace: {{ .Values.watcher.watchNamespace }}
+  {{- end }}
+  labels: {{- include "llm-gateway.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ ternary "ClusterRoleBinding" "RoleBinding" $clusterWide }}
+metadata:
+  name: {{ include "llm-gateway.fullname" . }}-watcher
+  {{- if not $clusterWide }}
+  namespace: {{ .Values.watcher.watchNamespace }}
+  {{- end }}
+  labels: {{- include "llm-gateway.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ ternary "ClusterRole" "Role" $clusterWide }}
+  name: {{ include "llm-gateway.fullname" . }}-watcher
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "llm-gateway.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

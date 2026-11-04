@@ -1,0 +1,5 @@
+llm-gateway installed as release {{ .Release.Name }}.
+
+Gateway:  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "llm-gateway.fullname" . }} 8000:{{ .Values.service.port }}
+Watcher:  {{ if .Values.watcher.enabled }}watching {{ default "all namespaces" .Values.watcher.watchNamespace }}{{ else }}disabled{{ end }}
+LLM:      Ollama at {{ include "llm-gateway.ollamaUrl" . }}{{ if .Values.ollama.enabled }} (deployed by this chart, pulling: {{ join ", " .Values.ollama.models }}){{ end }}

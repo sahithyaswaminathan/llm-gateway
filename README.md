@@ -62,7 +62,9 @@ curl -X POST http://localhost:8000/v1/complete \
 
 `docker compose up --build` also starts Prometheus (http://localhost:9090) and Grafana (http://localhost:3000, anonymous viewer). The `LLM Gateway` dashboard is provisioned from `deploy/observability/grafana/dashboards/llm-gateway.json` and shows the share of requests answered without the LLM, requests and p50/p90 latency by tier, and token use.
 
-Snapshot of a local run (85 requests, stubbed LLM, so agent latency is not representative): https://apps.abacus.ai/chatllm/share/artifact/2a6f43251:136764ceb6
+![Grafana dashboard](docs/grafana-dashboard.png)
+
+Captured from a local `docker compose` run with about 100 requests and a stubbed LLM, so agent latency and token counts are not representative. Panel values such as 98.3 are fractional because Prometheus `increase()` extrapolates. Summary page: https://apps.abacus.ai/chatllm/share/artifact/2a6f43251:136764ceb6
 
 ## Project structure
 

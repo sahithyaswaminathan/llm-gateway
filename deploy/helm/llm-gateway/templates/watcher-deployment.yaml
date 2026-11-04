@@ -1,0 +1,52 @@
+{{- if .Values.watcher.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "llm-gateway.fullname" . }}-watcher
+  labels:
+    {{- include "llm-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: watcher
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "llm-gateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: watcher
+  template:
+    metadata:
+      labels:
+        {{- include "llm-gateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: watcher
+    spec:
+      serviceAccountName: {{ include "llm-gateway.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: watcher
+          image: {{ include "llm-gateway.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "app.ingest.k8s_watcher"]
+          env:
+            - {name: GATEWAY_URL, value: "http://{{ include "llm-gateway.fullname" . }}:{{ .Values.service.port }}"}
+            - {name: WATCH_NAMESPACE, value: {{ .Values.watcher.watchNamespace | quote }}}
+            - {name: INGEST_COOLDOWN_SECONDS, value: {{ .Values.watcher.cooldownSeconds | quote }}}
+            - {name: INGEST_LOG_TAIL_LINES, value: {{ .Values.watcher.logTailLines | quote }}}
+            - {name: INGEST_RESTART_THRESHOLD, value: {{ .Values.watcher.restartThreshold | quote }}}
+          resources: {{- toYaml .Values.watcher.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+            readOnlyRootFilesystem: true
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

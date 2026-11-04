@@ -1,20 +1,30 @@
-"""Pre-filter: avoid LLM calls for duplicates, health-checks, or rule-handlable inputs."""
+"""Pre-filter: avoid LLM calls for trivial or runbook-known inputs.
 
-import re
+Tier 0 of the gateway. Checks are cheapest-first:
+1. trivial requests (empty / ping / health) -> generic rule response
+2. runbook match on the normalized text    -> known resolution, no LLM
+3. everything else                         -> pass to the semantic cache tier
+"""
 
-DEDUP_TTL_HINT = "deduplicate identical prompts within a short window"
+from app.gateway.runbooks import RunbookStore
 
-def should_call_llm(prompt: str, task_type: str) -> bool:
-    p = prompt.strip().lower()
-    # Examples: skip LLM for empty, ping/health, or exact template matches
-    if not p:
-        return False
-    if p in {"ping", "health", "test"}:
-        return False
-    # TODO: add your domain rules here, e.g.:
-    # - if pod is in known-good state, return rule-based "healthy"
-    # - if error matches known regex, return runbook link without LLM
-    return True
+_TRIVIAL = {"", "ping", "health", "test"}
+_TRIVIAL_RESPONSE = "No action needed (trivial request)."
 
-def rule_based_response(prompt: str) -> str:
-    return "Handled by rule-based pre-filter (no LLM call needed)."
+
+class Prefilter:
+    def __init__(self, runbooks: RunbookStore | None = None):
+        self.runbooks = runbooks or RunbookStore()
+
+    def check(self, prompt: str) -> tuple[bool, str | None, str | None]:
+        """Return (needs_llm, resolution, source).
+
+        needs_llm is False when the request can be answered without the LLM;
+        then resolution holds the answer and source is "rule" or "runbook".
+        """
+        if prompt.strip().lower() in _TRIVIAL:
+            return False, _TRIVIAL_RESPONSE, "rule"
+        runbook = self.runbooks.match(prompt)
+        if runbook is not None:
+            return False, runbook, "runbook"
+        return True, None, None

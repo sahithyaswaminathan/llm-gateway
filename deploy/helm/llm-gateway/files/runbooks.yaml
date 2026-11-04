@@ -1,0 +1,36 @@
+# Known issues answered with no LLM call.
+# Each entry: `pattern` is a regex matched against the NORMALIZED, lowercased
+# log text (see app/gateway/normalizer.py — pod names, timestamps, IPs and
+# numbers are already stripped, so write patterns without them), and
+# `resolution` is the runbook text returned to the caller.
+#
+# The agent fallback tier appends entries here when it resolves an unseen
+# error (RunbookStore.add), so the next occurrence is answered for free.
+
+# --- Kubernetes ---
+- pattern: "imagepullbackoff"
+  resolution: "ImagePullBackOff: the container image is missing or the registry credentials are wrong. Check the image tag and imagePullSecrets."
+- pattern: "oomkilled"
+  resolution: "OOMKilled: the container exceeded its memory limit. Raise the memory limit or investigate the memory growth in the application."
+
+# --- Docker ---
+- pattern: "cannot connect to the docker daemon"
+  resolution: "Docker daemon is not running (or DOCKER_HOST is wrong). Start Docker Desktop / the docker service and retry."
+- pattern: "port is already allocated"
+  resolution: "Port conflict: another process owns the host port. Stop it or remap with -p <free-port>:<container-port>."
+- pattern: "no space left on device"
+  resolution: "Docker disk space exhausted. Run `docker system prune` and check dangling volumes with `docker volume ls -f dangling=true`."
+
+# --- Spark ---
+- pattern: "outofmemoryerror: java heap space"
+  resolution: "Executor/driver OOM. Raise spark.executor.memory (or driver memory), add memory overhead, or increase parallelism so each task holds less."
+- pattern: "table or view not found"
+  resolution: "AnalysisException: the table/view name or database is wrong, or the catalog was not refreshed. Verify with `SHOW TABLES` / refresh."
+- pattern: "fetchfailedexception"
+  resolution: "Shuffle fetch failed: an executor was likely lost (OOM or preempted). Check executor logs, then raise partitions / executor memory."
+
+# --- Flink ---
+- pattern: "checkpoint \\d+ expired before completing"
+  resolution: "Checkpoint timed out: backpressure or a slow state backend. Increase the checkpoint timeout and inspect backpressure on the job graph."
+- pattern: "could not acquire the minimum required resources"
+  resolution: "Not enough task slots. Add TaskManagers or lower the job parallelism to fit available slots."

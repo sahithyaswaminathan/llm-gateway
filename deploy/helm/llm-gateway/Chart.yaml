@@ -1,0 +1,10 @@
+apiVersion: v2
+name: llm-gateway
+description: Cost-aware debugging gateway (pre-filter, semantic knowledge base, agent) with a Kubernetes pod watcher
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: ollama
+    version: 0.1.0
+    condition: ollama.enabled

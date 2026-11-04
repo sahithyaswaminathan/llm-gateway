@@ -1,0 +1,17 @@
+image:
+  repository: ollama/ollama
+  tag: "0.3.12"
+  pullPolicy: IfNotPresent
+port: 11434
+models:
+  - phi
+  - mistral
+persistence:
+  size: 20Gi
+  storageClass: ""
+  existingClaim: ""
+resources:
+  requests: {cpu: "1", memory: 4Gi}
+  limits: {memory: 8Gi}
+nodeSelector: {}
+tolerations: []

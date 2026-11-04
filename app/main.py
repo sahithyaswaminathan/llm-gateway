@@ -1,15 +1,22 @@
-from fastapi import FastAPI, Header
-from pydantic import BaseModel
-from typing import Optional
+import hashlib
 import time
 
-from app.gateway.prefilter import should_call_llm, rule_based_response
+from fastapi import FastAPI, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from pydantic import BaseModel
+from typing import Optional
+
+from app.gateway.prefilter import Prefilter
 from app.gateway.cache import SemanticCache
 from app.gateway.router import route_model, call_model
+from app.agent.debug_agent import DebugAgent
 from app.observability.logger import log_call
 
 app = FastAPI(title="Cost-Aware LLM Gateway")
+prefilter = Prefilter()
 cache = SemanticCache()
+agent = DebugAgent(cache=cache, runbooks=prefilter.runbooks)
+
 
 class CompleteRequest(BaseModel):
     prompt: str
@@ -17,26 +24,36 @@ class CompleteRequest(BaseModel):
     max_cost_usd: Optional[float] = 0.05
     user_id: Optional[str] = None
 
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
 
+
 @app.post("/v1/complete")
 def complete(req: CompleteRequest):
     start = time.time()
-    prompt_hash = str(hash(req.prompt))
+    # Python's hash() is salted per process; use a stable digest instead.
+    prompt_hash = hashlib.sha256(req.prompt.encode("utf-8")).hexdigest()
 
-    # 1. Pre-filter: can we avoid LLM entirely?
-    if not should_call_llm(req.prompt, req.task_type):
-        resp = rule_based_response(req.prompt)
+    # 1. Pre-filter: runbook or trivial rule can answer without the LLM?
+    needs_llm, resolution, source = prefilter.check(req.prompt)
+    if not needs_llm:
+        model = f"prefilter:{source}"
         log_call(
-            prompt_hash=prompt_hash, model="rule-based", task_type=req.task_type,
+            prompt_hash=prompt_hash, model=model, task_type=req.task_type,
             tokens_in=0, tokens_out=0, latency_ms=int((time.time()-start)*1000),
             cost_usd=0.0, cache_hit=False, filtered=True,
         )
-        return {"response": resp, "model": "rule-based", "cost_usd": 0.0, "filtered": True}
+        return {"response": resolution, "model": model, "source": source,
+                "cost_usd": 0.0, "filtered": True}
 
-    # 2. Semantic cache
+    # 2. Semantic knowledge base (normalized + embedded)
     cached = cache.get(req.prompt)
     if cached:
         log_call(
@@ -46,22 +63,26 @@ def complete(req: CompleteRequest):
         )
         return {"response": cached, "model": "cache", "cost_usd": 0.0, "cache_hit": True}
 
-    # 3. Route to cheapest capable model
-    model = route_model(req.task_type, req.max_cost_usd)
-    response_text, tokens_in, tokens_out, cost = call_model(model, req.prompt)
-
-    # 4. Cache and log
-    cache.set(req.prompt, response_text)
+    # 3. Agent resolves the error and writes back to the knowledge base
+    response_text, parsed_error = agent.resolve(req.prompt, model=route_model(req.task_type, req.max_cost_usd))
+    
+    # Estimate tokens (agent doesn't return them; use text length)
+    tokens_in = len(req.prompt.split())
+    tokens_out = len(response_text.split())
+    cost = 0.0  # open-source models are free
+    
     latency_ms = int((time.time() - start) * 1000)
     log_call(
-        prompt_hash=prompt_hash, model=model, task_type=req.task_type,
+        prompt_hash=prompt_hash, model="agent", task_type=req.task_type,
         tokens_in=tokens_in, tokens_out=tokens_out, latency_ms=latency_ms,
         cost_usd=cost, cache_hit=False, filtered=False,
     )
 
     return {
         "response": response_text,
-        "model": model,
-        "cost_usd": round(cost, 6),
+        "model": "agent",
+        "error_source": parsed_error.source,
+        "error_type": parsed_error.error_type,
+        "cost_usd": 0.0,
         "latency_ms": latency_ms,
     }

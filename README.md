@@ -45,18 +45,39 @@ flowchart LR
 
 ## Quickstart
 
+The gateway uses local, open-source models through Ollama. No API keys or `.env` file are required. Install Docker Desktop and [Ollama](https://ollama.com/download), start Ollama, and pull a model:
+
 ```bash
-cp .env.example .env
-# fill in ANTHROPIC_API_KEY, OPENAI_API_KEY
+ollama pull phi
+```
+
+Start the gateway, Prometheus, and Grafana from the repository root:
+
+```bash
 docker compose up --build
 ```
 
-Test:
+In another terminal, send a request. This known runbook error is answered without calling the model:
+
 ```bash
 curl -X POST http://localhost:8000/v1/complete \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Summarize this K8s pod error: CrashLoopBackOff", "task_type": "triage", "max_cost_usd": 0.02}'
+  -d '{"prompt": "Container api-7f9c8 OOMKilled exit code 137", "task_type": "triage"}'
 ```
+
+Check service health at http://localhost:8000/health, metrics at http://localhost:8000/metrics, Prometheus at http://localhost:9090, and Grafana at http://localhost:3000. The provisioned Grafana dashboard is named **LLM Gateway**. To stop the stack, press Ctrl+C if Compose is attached, or run `docker compose down` in another terminal.
+
+If Ollama is unavailable, the gateway falls back to a local Hugging Face GPT-2 model on agent requests. Its first use downloads the model and may be slow; Ollama is recommended for the demo.
+
+## Demo: Grafana dashboard
+
+`docker compose up --build` also starts Prometheus (http://localhost:9090) and Grafana (http://localhost:3000, anonymous viewer). The `LLM Gateway` dashboard is provisioned from `deploy/observability/grafana/dashboards/llm-gateway.json` and shows the share of requests answered without the LLM, requests and p50/p90 latency by tier, and token use.
+
+![Grafana dashboard](docs/grafana-dashboard.png)
+
+End-to-end trace of a runbook answer, an unseen error sent to the debug agent, and a related error served from semantic cache: [docs/end-to-end-workflow.png](docs/end-to-end-workflow.png). The values were captured from live local API responses; the image is a formatted trace, not a raw terminal screenshot. The agent endpoint used a canned mock Ollama response.
+
+Captured from a local `docker compose` run with about 100 requests and a stubbed LLM, so agent latency and token counts are not representative. Panel values such as 98.3 are fractional because Prometheus `increase()` extrapolates. Summary page: https://apps.abacus.ai/chatllm/share/artifact/2a6f43251:136764ceb6
 
 ## Project structure
 

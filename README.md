@@ -45,17 +45,15 @@ flowchart LR
 
 ## Quickstart
 
-The gateway uses local, open-source models through Ollama. No API keys or `.env` file are required. Install Docker Desktop and [Ollama](https://ollama.com/download), start Ollama, and pull a model:
+The gateway uses the open-source `qwen2.5:3b` model through a local Ollama container. No API keys or separate Ollama install are required. Docker Compose downloads the Ollama image and model on first startup; the model is kept in a persistent Docker volume.
 
-```bash
-ollama pull phi
-```
-
-Start the gateway, Prometheus, and Grafana from the repository root:
+Start the gateway, Ollama, Prometheus, and Grafana from the repository root:
 
 ```bash
 docker compose up --build
 ```
+
+The first startup downloads the model and can take several minutes. Set `DEFAULT_MODEL` in your shell or `.env` to use another Ollama model. The configured model must be available in the Ollama model library.
 
 In another terminal, send a request. This known runbook error is answered without calling the model:
 
@@ -68,6 +66,36 @@ curl -X POST http://localhost:8000/v1/complete \
 Check service health at http://localhost:8000/health, metrics at http://localhost:8000/metrics, Prometheus at http://localhost:9090, and Grafana at http://localhost:3000. The provisioned Grafana dashboard is named **LLM Gateway**. To stop the stack, press Ctrl+C if Compose is attached, or run `docker compose down` in another terminal.
 
 If Ollama is unavailable, the gateway falls back to a local Hugging Face GPT-2 model on agent requests. Its first use downloads the model and may be slow; Ollama is recommended for the demo.
+
+## Benchmark
+
+The benchmark compares direct calls to the configured Ollama model against the gateway pipeline on a small fixed dataset. It measures p50/p95 latency, gateway tier counts, LLM calls avoided, Ollama-reported token counts for direct calls, gateway token metrics, and a basic expected-keyword check. The runner starts a temporary gateway with an isolated Chroma database; it does not clear or modify the Compose gateway's cache.
+
+With the Compose stack running and the Python dependencies installed locally:
+
+```bash
+python -m pip install -r requirements.txt
+python benchmarks/run_benchmark.py --model qwen2.5:3b --ollama-url http://localhost:11434 --output benchmarks/results/qwen2.5-3b.json
+```
+
+Review the JSON report before making claims. Keyword matching is only a rough screen, not a human quality assessment. Gateway token metrics currently estimate tokens by whitespace word count, while Ollama reports tokenizer counts, so those totals are not directly comparable. Results also depend on local hardware and the model version.
+
+### Recorded run: Qwen 2.5 3B
+
+A local exploratory run used Ollama model `qwen2.5:3b` (Q4_K_M, 3.1B parameters) on November 11, 2026, with the five cases in `benchmarks/cases.jsonl`:
+
+| Measurement | Result |
+| --- | ---: |
+| Gateway requests | 15 |
+| Runbook pre-filter | 6 (40%) |
+| Semantic cache | 6 (40%) |
+| Debug agent / model | 3 (20%) |
+| Requests not sent to model | 12/15 (80%) |
+| Gateway end-to-end latency, p50 / p95 | 34 ms / 30.3 s |
+| Direct Ollama latency, p50 / p95 (5 original prompts) | 129.9 s / 185.2 s |
+| Expected-keyword check | 100% for both paths (weak screening check only) |
+
+The direct baseline ran once per original case (5 requests); the gateway ran each original plus two variants (15 requests), so the latency percentiles are **not an apples-to-apples comparison**. Gateway p95 includes the three real model calls; fast pre-filter and cache hits pull its p50 down. The model returned long direct-baseline answers (3,272 output tokens total according to Ollama). Gateway token counts are word-count estimates and cannot be compared to that tokenizer count. This small synthetic run is evidence that the tiers execute and avoid model calls on this dataset, not a general quality, speedup, or token-savings claim. The direct baseline also answered the OOM case with the model while the gateway answered it from the curated runbook.
 
 ## Demo: Grafana dashboard
 

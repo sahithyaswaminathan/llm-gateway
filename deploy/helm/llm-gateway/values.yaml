@@ -13,8 +13,8 @@ gateway:
     limits: {memory: 3Gi}
   env:
     ollamaUrl: ""
-    defaultModel: mistral
-    cheapModel: phi
+    defaultModel: qwen2.5:3b
+    cheapModel: qwen2.5:3b
     cacheDistanceThreshold: "0.2"
   persistence:
     size: 5Gi
@@ -24,8 +24,7 @@ gateway:
 ollama:
   enabled: true
   models:
-    - phi
-    - mistral
+    - qwen2.5:3b
 
 watcher:
   enabled: true

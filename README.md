@@ -80,6 +80,23 @@ python benchmarks/run_benchmark.py --model qwen2.5:3b --ollama-url http://localh
 
 Review the JSON report before making claims. Keyword matching is only a rough screen, not a human quality assessment. Gateway token metrics currently estimate tokens by whitespace word count, while Ollama reports tokenizer counts, so those totals are not directly comparable. Results also depend on local hardware and the model version.
 
+### Recorded run: Qwen 2.5 3B
+
+A local exploratory run used Ollama model `qwen2.5:3b` (Q4_K_M, 3.1B parameters) on November 11, 2026, with the five cases in `benchmarks/cases.jsonl`:
+
+| Measurement | Result |
+| --- | ---: |
+| Gateway requests | 15 |
+| Runbook pre-filter | 6 (40%) |
+| Semantic cache | 6 (40%) |
+| Debug agent / model | 3 (20%) |
+| Requests not sent to model | 12/15 (80%) |
+| Gateway end-to-end latency, p50 / p95 | 34 ms / 30.3 s |
+| Direct Ollama latency, p50 / p95 (5 original prompts) | 129.9 s / 185.2 s |
+| Expected-keyword check | 100% for both paths (weak screening check only) |
+
+The direct baseline ran once per original case (5 requests); the gateway ran each original plus two variants (15 requests), so the latency percentiles are **not an apples-to-apples comparison**. Gateway p95 includes the three real model calls; fast pre-filter and cache hits pull its p50 down. The model returned long direct-baseline answers (3,272 output tokens total according to Ollama). Gateway token counts are word-count estimates and cannot be compared to that tokenizer count. This small synthetic run is evidence that the tiers execute and avoid model calls on this dataset, not a general quality, speedup, or token-savings claim. The direct baseline also answered the OOM case with the model while the gateway answered it from the curated runbook.
+
 ## Demo: Grafana dashboard
 
 `docker compose up --build` also starts Prometheus (http://localhost:9090) and Grafana (http://localhost:3000, anonymous viewer). The `LLM Gateway` dashboard is provisioned from `deploy/observability/grafana/dashboards/llm-gateway.json` and shows the share of requests answered without the LLM, requests and p50/p90 latency by tier, and token use.

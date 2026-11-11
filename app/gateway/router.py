@@ -1,10 +1,7 @@
-"""Route requests to the cheapest capable open-source model.
+"""Call the configured local open-source model through Ollama.
 
-Supports:
-- Ollama (local server at http://localhost:11434)
-- Hugging Face Transformers (fallback if Ollama unavailable)
-
-No API keys needed; all models run locally.
+Hugging Face Transformers is used as a fallback if Ollama is unavailable.
+No API keys are needed; inference runs locally.
 """
 
 import os
@@ -13,29 +10,21 @@ from typing import Optional
 import httpx
 
 _OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-_DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "mistral")
-_CHEAP_MODEL = os.environ.get("CHEAP_MODEL", "phi")
+_DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "qwen2.5:3b")
 
-# Model pricing (for cost estimation; local models are free to run)
+# Local Ollama models have no per-token API charge.
 MODEL_PRICES = {
+    "qwen2.5:3b": (0.0, 0.0),
     "mistral": (0.0, 0.0),
     "phi": (0.0, 0.0),
     "neural-chat": (0.0, 0.0),
     "orca-mini": (0.0, 0.0),
 }
 
-TASK_MODEL_PREFERENCE = {
-    "triage": ["phi", "mistral"],
-    "summarize": ["phi", "mistral"],
-    "qa": ["mistral", "phi"],
-    "general": ["phi", "mistral"],
-}
-
 
 def route_model(task_type: str, max_cost_usd: Optional[float] = None) -> str:
-    """Pick the cheapest preferred model for the task."""
-    prefs = TASK_MODEL_PREFERENCE.get(task_type, TASK_MODEL_PREFERENCE["general"])
-    return prefs[0]
+    """Return the configured local Ollama model for this request."""
+    return _DEFAULT_MODEL
 
 
 def estimate_cost(model: str, tokens_in: int, tokens_out: int) -> float:

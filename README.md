@@ -45,18 +45,29 @@ flowchart LR
 
 ## Quickstart
 
+The gateway uses local, open-source models through Ollama. No API keys or `.env` file are required. Install Docker Desktop and [Ollama](https://ollama.com/download), start Ollama, and pull a model:
+
 ```bash
-cp .env.example .env
-# fill in ANTHROPIC_API_KEY, OPENAI_API_KEY
+ollama pull phi
+```
+
+Start the gateway, Prometheus, and Grafana from the repository root:
+
+```bash
 docker compose up --build
 ```
 
-Test:
+In another terminal, send a request. This known runbook error is answered without calling the model:
+
 ```bash
 curl -X POST http://localhost:8000/v1/complete \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Summarize this K8s pod error: CrashLoopBackOff", "task_type": "triage", "max_cost_usd": 0.02}'
+  -d '{"prompt": "Container api-7f9c8 OOMKilled exit code 137", "task_type": "triage"}'
 ```
+
+Check service health at http://localhost:8000/health, metrics at http://localhost:8000/metrics, Prometheus at http://localhost:9090, and Grafana at http://localhost:3000. The provisioned Grafana dashboard is named **LLM Gateway**. To stop the stack, press Ctrl+C if Compose is attached, or run `docker compose down` in another terminal.
+
+If Ollama is unavailable, the gateway falls back to a local Hugging Face GPT-2 model on agent requests. Its first use downloads the model and may be slow; Ollama is recommended for the demo.
 
 ## Demo: Grafana dashboard
 

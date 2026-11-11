@@ -64,6 +64,8 @@ curl -X POST http://localhost:8000/v1/complete \
 
 ![Grafana dashboard](docs/grafana-dashboard.png)
 
+End-to-end trace of a runbook answer, an unseen error sent to the debug agent, and a related error served from semantic cache: [docs/end-to-end-workflow.png](docs/end-to-end-workflow.png). The values were captured from live local API responses; the image is a formatted trace, not a raw terminal screenshot. The agent endpoint used a canned mock Ollama response.
+
 Captured from a local `docker compose` run with about 100 requests and a stubbed LLM, so agent latency and token counts are not representative. Panel values such as 98.3 are fractional because Prometheus `increase()` extrapolates. Summary page: https://apps.abacus.ai/chatllm/share/artifact/2a6f43251:136764ceb6
 
 ## Project structure
